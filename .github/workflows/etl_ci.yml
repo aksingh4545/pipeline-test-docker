@@ -19,14 +19,15 @@ jobs:
         env:
           ACCEPT_EULA: "Y"
           MSSQL_SA_PASSWORD: "ankit4539047@"
+          MSSQL_MEMORY_LIMIT_MB: "2048"
         ports:
           - 1433:1433
         options: >-
-          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q 'SELECT 1' || exit 1"
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q 'SELECT 1'"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=15
-          --health-start-period=30s
+          --health-retries=20
+          --health-start-period=60s
 
       postgres:
         image: postgres:15
