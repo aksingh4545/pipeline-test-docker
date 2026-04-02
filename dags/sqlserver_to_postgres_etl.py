@@ -5,6 +5,7 @@ import pandas as pd
 import pyodbc
 import psycopg2
 from psycopg2.extras import execute_batch
+import os
 
 
 # ---------------------------
@@ -14,7 +15,7 @@ from psycopg2.extras import execute_batch
 def get_sqlserver_conn():
     return pyodbc.connect(
         "DRIVER={ODBC Driver 17 for SQL Server};"
-        "SERVER=sqlserver,1433;"
+        f"SERVER={os.getenv('SQLSERVER_HOST', 'sqlserver')},1433;"
         "DATABASE=retail_ops_db;"
         "UID=sa;"
         "PWD=ankit4539047@"
@@ -22,7 +23,7 @@ def get_sqlserver_conn():
 
 def get_postgres_conn():
     return psycopg2.connect(
-        host="postgres",
+        host=os.getenv('POSTGRES_HOST', 'postgres'),
         database="retail_analytics_db",
         user="postgres",
         password="postgres"

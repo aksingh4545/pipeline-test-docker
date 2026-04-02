@@ -14,6 +14,19 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "ankit4539047@"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
       postgres:
         image: postgres:15
         env:
@@ -39,11 +52,51 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas psycopg2-binary pytest
+          pip install pandas psycopg2-binary pyodbc pytest airflow
+
+      - name: Wait for SQL Server
+        run: |
+          sleep 30
 
       - name: Wait for Postgres
         run: |
           sleep 10
+
+      - name: Initialize SQL Server database
+        run: |
+          docker exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q "CREATE DATABASE retail_ops_db"
+
+      - name: Seed SQL Server with test data
+        run: |
+          docker exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -d retail_ops_db -Q "
+          CREATE TABLE customers (customer_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), email VARCHAR(100));
+          CREATE TABLE products (product_id INT PRIMARY KEY, product_name VARCHAR(100), category VARCHAR(50));
+          CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATETIME);
+          CREATE TABLE order_items (order_item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT);
+          CREATE TABLE payments (payment_id INT PRIMARY KEY, order_id INT, payment_method VARCHAR(50), amount DECIMAL(10,2));
+          CREATE TABLE shipments (shipment_id INT PRIMARY KEY, order_id INT, status VARCHAR(50));
+          
+          INSERT INTO customers VALUES (1, 'John', 'Doe', 'john@example.com');
+          INSERT INTO products VALUES (1, 'Widget', 'Electronics');
+          INSERT INTO orders VALUES (1, 1, GETDATE());
+          INSERT INTO order_items VALUES (1, 1, 1, 2);
+          INSERT INTO payments VALUES (1, 1, 'credit_card', 99.99);
+          INSERT INTO shipments VALUES (1, 1, 'delivered');
+          "
+
+      - name: Run ETL pipeline
+        env:
+          SQLSERVER_HOST: localhost
+          POSTGRES_HOST: localhost
+        run: |
+          python -c "
+          from dags.sqlserver_to_postgres_etl import extract_and_stage, build_intermediate, build_marts, build_aggregations
+          for table in ['customers', 'products', 'orders', 'order_items', 'payments', 'shipments']:
+              extract_and_stage(table)
+          build_intermediate()
+          build_marts()
+          build_aggregations()
+          "
 
       - name: Run tests
         run: |
