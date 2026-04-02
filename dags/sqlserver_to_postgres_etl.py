@@ -24,6 +24,7 @@ def get_sqlserver_conn():
 def get_postgres_conn():
     return psycopg2.connect(
         host=os.getenv('POSTGRES_HOST', 'postgres'),
+        port=os.getenv('POSTGRES_PORT', '5432'),
         database="retail_analytics_db",
         user="postgres",
         password="postgres"
