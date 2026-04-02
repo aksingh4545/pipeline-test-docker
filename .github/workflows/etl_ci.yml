@@ -14,21 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: "ankit4539047@"
-          MSSQL_MEMORY_LIMIT_MB: "2048"
-        ports:
-          - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q 'SELECT 1'"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=20
-          --health-start-period=60s
-
       postgres:
         image: postgres:15
         env:
@@ -56,9 +41,25 @@ jobs:
         run: |
           pip install pandas psycopg2-binary pyodbc pytest airflow
 
+      - name: Start SQL Server container
+        run: |
+          docker run -d \
+            --name sqlserver \
+            -e ACCEPT_EULA=Y \
+            -e MSSQL_SA_PASSWORD="ankit4539047@" \
+            -p 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+
       - name: Wait for SQL Server
         run: |
-          sleep 30
+          for i in {1..60}; do
+            if docker exec sqlserver /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'ankit4539047@' -Q 'SELECT 1' 2>/dev/null; then
+              echo "SQL Server is ready"
+              break
+            fi
+            echo "Waiting for SQL Server... ($i/60)"
+            sleep 5
+          done
 
       - name: Wait for Postgres
         run: |
